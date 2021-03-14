@@ -9,7 +9,9 @@ class S(BaseHTTPRequestHandler):
     dictionary = dict()
 
     def save_to_dictionary(self, post_data):
-        S.dictionary[ str( uuid.uuid4() ) ] = post_data
+        pair = json.loads( post_data )
+        #S.dictionary[ str( uuid.uuid4() ) ] = post_data
+        S.dictionary[ pair[0] ] = pair[1]
         print(S.dictionary)
 
     def _set_response(self):
@@ -24,7 +26,7 @@ class S(BaseHTTPRequestHandler):
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length).decode('utf-8')
+        post_data = self.rfile.read(content_length).decode()
         self.save_to_dictionary( post_data )
         self._set_response()
 

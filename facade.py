@@ -2,7 +2,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
 import http.client
 import simplejson as json
-
+import uuid
 
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
@@ -28,8 +28,13 @@ class S(BaseHTTPRequestHandler):
         content_length = int(self.headers['Content-Length']) # <--- Gets the size of data
         post_data = self.rfile.read(content_length).decode('utf-8') # <--- Gets the data itself
         
-        self.request_( 'localhost', 8081, "POST", post_data )
-        self.request_('localhost', 8082, "GET",)
+        #pair = ( uuid.uuid4(), post_data );
+        json_pair = json.dumps( ( uuid.uuid4().int, post_data ) )
+        print( json_pair )
+
+        # self.request_( 'localhost', 8081, "POST", post_data )
+        self.request_( 'localhost', 8081, "POST", json_pair )
+        self.request_('localhost', 8082, "POST",)
 
         self._set_response()
 
