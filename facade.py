@@ -3,12 +3,25 @@ import logging
 import http.client
 import simplejson as json
 import uuid
+import random
+
+LOGGING_PORTS = ('8091', '8092', '8093')
 
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
+        
+    def _parse_logging_response(self, response):
+        result = ""
+        print(response)
+        for i in response:
+            print(i)
+            result += json.load(i)['data']
+        
+        print(result)
+        return result
 
     def request_( self, host, port, method, payload=None ):
         conn = http.client.HTTPConnection( host, port );
@@ -17,23 +30,24 @@ class S(BaseHTTPRequestHandler):
         return conn.getresponse()
 
     def do_GET(self):
-        response = self.request_('localhost', 8081, "GET",)
-        response2 = self.request_('localhost', 8082, "GET",)
+        response_loggging = self.request_('localhost', random.choice(LOGGING_PORTS), "GET",)
+        #response_loggging = self.request_('localhost', 8091, "GET",)
+        response_messg_inst = self.request_('localhost', 8082, "GET",)
         
         self._set_response()
-        self.wfile.write( '{0}: {1}\n'.format( response.read().decode(), 
-                                               response2.read().decode() ).encode('UTF-8') )
+        self.wfile.write( '{0}: {1}\n'.format( response_loggging.read().decode(), 
+                                               response_messg_inst.read().decode() ).encode('UTF-8') )
+        
 
     def do_POST(self):
-        content_length = int(self.headers['Content-Length']) # <--- Gets the size of data
-        post_data = self.rfile.read(content_length).decode('utf-8') # <--- Gets the data itself
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length).decode('utf-8')
         
-        #pair = ( uuid.uuid4(), post_data );
-        json_pair = json.dumps( ( uuid.uuid4().int, post_data ) )
+        json_pair = json.dumps( { 'id': str(uuid.uuid4().int), 'data': post_data } )
         print( json_pair )
 
-        # self.request_( 'localhost', 8081, "POST", post_data )
-        self.request_( 'localhost', 8081, "POST", json_pair )
+        self.request_( 'localhost', random.choice(LOGGING_PORTS), "POST", json_pair )
+        #self.request_( 'localhost', 8091, "POST", json_pair )
         self.request_('localhost', 8082, "POST",)
 
         self._set_response()
