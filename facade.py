@@ -4,8 +4,14 @@ import http.client
 import simplejson as json
 import uuid
 import random
+import pika
 
 LOGGING_PORTS = ('8091', '8092', '8093')
+MESSAGE_PORTS = ('9091', '9092')
+
+connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+channel = connection.channel();
+channel.queue_declare(queue='lab6')
 
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
@@ -30,13 +36,12 @@ class S(BaseHTTPRequestHandler):
         return conn.getresponse()
 
     def do_GET(self):
+        response_messging = self.request_('localhost', random.choice(MESSAGE_PORTS), "GET",)
         response_loggging = self.request_('localhost', random.choice(LOGGING_PORTS), "GET",)
-        #response_loggging = self.request_('localhost', 8091, "GET",)
-        response_messg_inst = self.request_('localhost', 8082, "GET",)
         
         self._set_response()
         self.wfile.write( '{0}: {1}\n'.format( response_loggging.read().decode(), 
-                                               response_messg_inst.read().decode() ).encode('UTF-8') )
+                                               response_messging.read().decode() ).encode('UTF-8') )
         
 
     def do_POST(self):
@@ -47,8 +52,7 @@ class S(BaseHTTPRequestHandler):
         print( json_pair )
 
         self.request_( 'localhost', random.choice(LOGGING_PORTS), "POST", json_pair )
-        #self.request_( 'localhost', 8091, "POST", json_pair )
-        self.request_('localhost', 8082, "POST",)
+        channel.basic_publish(exchange='', routing_key='lab6', body= json_pair)
 
         self._set_response()
 

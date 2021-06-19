@@ -12,7 +12,7 @@ client = hazelcast.HazelcastClient(
     ]
 )
 
-my_map = client.get_map("lab4")
+my_map = client.get_map("lab6")
 
 class S(BaseHTTPRequestHandler):
 
