@@ -4,11 +4,19 @@ import logging
 import http.client
 import sys
 import simplejson as json
+import consul_api
+
+def get_hazelcast_config():
+    records = json.loads( consul_api.get_kv("hazelcast")["Value"].decode() )
+    for record in records:
+        if record['id'] == sys.argv[2]:
+            return (record['host'] + ":" + record['port'])
 
 client = hazelcast.HazelcastClient(
     cluster_name="dev",
     cluster_members=[
-        f"127.0.0.1:{sys.argv[2]}"
+        #f"127.0.0.1:{sys.argv[2]}"
+        get_hazelcast_config()
     ]
 )
 
@@ -24,13 +32,17 @@ class S(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        result = []
-        self._set_response()
-        
-        for record in my_map.entry_set().result():
-            result.append(record[1])
-        
-        self.wfile.write( bytes(json.dumps(result), "utf8") )
+        if self.path == '/health':
+                self._set_response()
+                self.wfile.write("GET request for {}".format(self.path).encode('utf-8'))
+        else:
+            result = []
+            self._set_response()
+            
+            for record in my_map.entry_set().result():
+                result.append(record[1])
+            
+            self.wfile.write( bytes(json.dumps(result), "utf8") )
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
@@ -40,9 +52,18 @@ class S(BaseHTTPRequestHandler):
         my_map.put(msg['id'], msg['data'])
         self._set_response()
 
+
 def run(server_class=HTTPServer, handler_class=S, port=8081):    
     server_address = ('localhost', port)
     httpd = server_class(server_address, handler_class)
+    
+    consul_api.service_registration(service_name = "logger",
+                                    service_id = ("logger_" + str(port)),
+                                    service_address = "127.0.0.1",
+                                    service_port = port,
+                                    service_tags = ('logger', 'lab_7', str(port)),
+                                    service_interv = '3s')
+    
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

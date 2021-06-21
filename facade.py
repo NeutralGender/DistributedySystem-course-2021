@@ -5,13 +5,23 @@ import simplejson as json
 import uuid
 import random
 import pika
+import consul_api
+import sys
 
 LOGGING_PORTS = ('8091', '8092', '8093')
 MESSAGE_PORTS = ('9091', '9092')
 
-connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+def get_rabbitmq_config():
+    records = json.loads( consul_api.get_kv("rabbitmq")["Value"].decode() )
+    for record in records:
+        if record['id'] == sys.argv[2]:
+            return(record['queue_addr'], record['queue_name'])
+
+rabbitmq_config = get_rabbitmq_config()
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_config[0]))
 channel = connection.channel();
-channel.queue_declare(queue='lab6')
+channel.queue_declare(queue=rabbitmq_config[1])
 
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
@@ -36,12 +46,19 @@ class S(BaseHTTPRequestHandler):
         return conn.getresponse()
 
     def do_GET(self):
-        response_messging = self.request_('localhost', random.choice(MESSAGE_PORTS), "GET",)
-        response_loggging = self.request_('localhost', random.choice(LOGGING_PORTS), "GET",)
-        
-        self._set_response()
-        self.wfile.write( '{0}: {1}\n'.format( response_loggging.read().decode(), 
-                                               response_messging.read().decode() ).encode('UTF-8') )
+        if self.path == '/health':
+            self._set_response()
+            self.wfile.write("GET request for {}".format(self.path).encode('utf-8'))
+        else:
+            random_logger = random.choice(consul_api.get_service_by_id("logger"))
+            response_messging = self.request_(random_logger[0], random_logger[1], "GET",)
+            
+            random_message = random.choice(consul_api.get_service_by_id("message"))
+            response_loggging = self.request_(random_message[0], random_message[1], "GET",)
+            
+            self._set_response()
+            self.wfile.write( '{0}: {1}\n'.format( response_loggging.read().decode(), 
+                                                response_messging.read().decode() ).encode('UTF-8') )
         
 
     def do_POST(self):
@@ -51,7 +68,8 @@ class S(BaseHTTPRequestHandler):
         json_pair = json.dumps( { 'id': str(uuid.uuid4().int), 'data': post_data } )
         print( json_pair )
 
-        self.request_( 'localhost', random.choice(LOGGING_PORTS), "POST", json_pair )
+        random_logger = random.choice(consul_api.get_service_by_id("logger"))
+        self.request_( random_logger[0], random_logger[1], "POST", json_pair )
         channel.basic_publish(exchange='', routing_key='lab6', body= json_pair)
 
         self._set_response()
@@ -59,6 +77,14 @@ class S(BaseHTTPRequestHandler):
 def run(server_class=HTTPServer, handler_class=S, port=8080):
     server_address = ('localhost', port)
     httpd = server_class(server_address, handler_class)
+    
+    consul_api.service_registration(service_name = "facade",
+                                    service_id = ("facade_" + str(port)),
+                                    service_address = "127.0.0.1",
+                                    service_port = port,
+                                    service_tags = ('facade', 'lab_7', str(port)),
+                                    service_interv = '3s')
+        
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -69,7 +95,7 @@ def run(server_class=HTTPServer, handler_class=S, port=8080):
 if __name__ == '__main__':
     from sys import argv
 
-    if len(argv) == 2:
+    if len(argv) == 3:
         run(port=int(argv[1]))
     else:
         run()
