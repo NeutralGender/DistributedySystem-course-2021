@@ -8,9 +8,6 @@ import pika
 import consul_api
 import sys
 
-LOGGING_PORTS = ('8091', '8092', '8093')
-MESSAGE_PORTS = ('9091', '9092')
-
 def get_rabbitmq_config():
     records = json.loads( consul_api.get_kv("rabbitmq")["Value"].decode() )
     for record in records:
