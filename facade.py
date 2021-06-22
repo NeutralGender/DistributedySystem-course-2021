@@ -51,10 +51,10 @@ class S(BaseHTTPRequestHandler):
             self.wfile.write("GET request for {}".format(self.path).encode('utf-8'))
         else:
             random_logger = random.choice(consul_api.get_service_by_id("logger"))
-            response_messging = self.request_(random_logger[0], random_logger[1], "GET",)
+            response_loggging = self.request_(random_logger[0], random_logger[1], "GET",)
             
             random_message = random.choice(consul_api.get_service_by_id("message"))
-            response_loggging = self.request_(random_message[0], random_message[1], "GET",)
+            response_messging = self.request_(random_message[0], random_message[1], "GET",)
             
             self._set_response()
             self.wfile.write( '{0}: {1}\n'.format( response_loggging.read().decode(), 
